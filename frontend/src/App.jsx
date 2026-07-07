@@ -57,7 +57,7 @@ function App() {
 
   useEffect(() => {
     const userId = getUserId(user);
-    if (userId) {
+    if (userId && API_BASE_URL) {
       const socketio = io(API_BASE_URL, {
         query: {
           userId
