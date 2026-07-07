@@ -5,6 +5,8 @@ import jwt from "jsonwebtoken";
 import cloudinary from "../utils/cloudinary.js";
 import getDataUri from "../utils/datauri.js";
 import { Post } from "../models/post.modal.js";
+import { Comment } from "../models/comment.modal.js";
+import { getIO, getReceiverSocketId } from "../socket.js";
 
 export const register  = async(req,res)=>{
   try{
@@ -48,7 +50,7 @@ export const login = async( req,res)=>{
         success:false,
       })
     } 
-let user =await User.findOne({email});
+let user =await User.findOne({email}).populate("followRequestsReceived", "username profilePicture bio followers");
 if(!user){
   return res.status(401).json({
     message:"User not found",
@@ -94,6 +96,8 @@ return res.cookie('token',token,{httpOnly:true,sameSite:'strict',maxAge:24*60*60
     gender:user.gender,
     followers:user.followers,
     following:user.following,
+    followRequestsSent:user.followRequestsSent,
+    followRequestsReceived:user.followRequestsReceived,
     posts:populatedPost.filter(Boolean),
     bookmarks:user.bookmarks
   }
@@ -138,6 +142,9 @@ export const getProfile = async( req,res)=>{
       path:'bookmarks',
       options:{sort:{createdAt:-1}},
       populate:{path:'author',select:'username profilePicture'}
+    }).populate({
+      path:'followRequestsReceived',
+      select:'username profilePicture bio followers'
     });
     return res.status(200).json({
       user,
@@ -394,47 +401,295 @@ export const followOrUnfollow = async (req, res) => {
       });
     }
 
-    const isFollowing = user.following.includes(jiskoFollowKrenge);
+    const isFollowing = user.following.some((id) => id.toString() === jiskoFollowKrenge);
+    const hasRequested = user.followRequestsSent.some((id) => id.toString() === jiskoFollowKrenge);
 
     if (isFollowing) {
       await Promise.all([
         User.updateOne(
           { _id: followKrneVala },
-          { $pull: { following: jiskoFollowKrenge } }
+          { $pull: { following: jiskoFollowKrenge, followRequestsSent: jiskoFollowKrenge } }
         ),
         User.updateOne(
           { _id: jiskoFollowKrenge },
-          { $pull: { followers: followKrneVala } }
+          { $pull: { followers: followKrneVala, followRequestsReceived: followKrneVala } }
         ),
       ]);
 
       return res.status(200).json({
         message: "Unfollowed",
-        success: true,
-      });
-    } else {
-      await Promise.all([
-        User.updateOne(
-          { _id: followKrneVala },
-          { $push: { following: jiskoFollowKrenge } }
-        ),
-        User.updateOne(
-          { _id: jiskoFollowKrenge },
-          { $push: { followers: followKrneVala } }
-        ),
-      ]);
-
-      return res.status(200).json({
-        message: "Following",
+        following: false,
+        requested: false,
         success: true,
       });
     }
+
+    if (hasRequested) {
+      await Promise.all([
+        User.updateOne(
+          { _id: followKrneVala },
+          { $pull: { followRequestsSent: jiskoFollowKrenge } }
+        ),
+        User.updateOne(
+          { _id: jiskoFollowKrenge },
+          { $pull: { followRequestsReceived: followKrneVala } }
+        ),
+      ]);
+
+      const receiverSocketId = getReceiverSocketId(jiskoFollowKrenge);
+      if (receiverSocketId) {
+        getIO()?.to(receiverSocketId).emit("followRequestNotification", {
+          type: "cancel",
+          userId: followKrneVala,
+        });
+      }
+
+      return res.status(200).json({
+        message: "Request cancelled",
+        following: false,
+        requested: false,
+        success: true,
+      });
+    }
+
+    await Promise.all([
+      User.updateOne(
+        { _id: followKrneVala },
+        { $addToSet: { followRequestsSent: jiskoFollowKrenge } }
+      ),
+      User.updateOne(
+        { _id: jiskoFollowKrenge },
+        { $addToSet: { followRequestsReceived: followKrneVala } }
+      ),
+    ]);
+
+    const receiverSocketId = getReceiverSocketId(jiskoFollowKrenge);
+    if (receiverSocketId) {
+      getIO()?.to(receiverSocketId).emit("followRequestNotification", {
+        type: "request",
+        user: {
+          _id: user._id,
+          username: user.username,
+          profilePicture: user.profilePicture,
+          bio: user.bio,
+          followers: user.followers,
+        },
+      });
+    }
+
+    return res.status(200).json({
+      message: "Follow request sent",
+      following: false,
+      requested: true,
+      success: true,
+    });
   } catch (error) {
     console.log(error);
     return res.status(500).json({
       message: "Internal server error",
       success: false,
       error: error.message,
+    });
+  }
+};
+
+export const deleteAccount = async (req, res) => {
+  try {
+    const userId = req.id;
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
+        success: false,
+      });
+    }
+
+    const userPosts = await Post.find({ author: userId }).select("_id");
+    const userPostIds = userPosts.map((post) => post._id);
+    const userComments = await Comment.find({ author: userId }).select("_id");
+    const userCommentIds = userComments.map((comment) => comment._id);
+
+    await Promise.all([
+      Comment.deleteMany({ $or: [{ author: userId }, { post: { $in: userPostIds } }] }),
+      Post.deleteMany({ author: userId }),
+      Post.updateMany(
+        {},
+        {
+          $pull: {
+            likes: userId,
+            comments: { $in: userCommentIds },
+          },
+        }
+      ),
+      User.updateMany(
+        { _id: { $ne: userId } },
+        {
+          $pull: {
+            followers: userId,
+            following: userId,
+            followRequestsSent: userId,
+            followRequestsReceived: userId,
+            bookmarks: { $in: userPostIds },
+          },
+        }
+      ),
+      User.findByIdAndDelete(userId),
+    ]);
+
+    return res.clearCookie('token',"", {maxAge:0}).status(200).json({
+      message: "Account permanently deleted",
+      success: true,
+    });
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({
+      message: "Account deletion failed",
+      success: false,
+      error: error.message,
+    });
+  }
+};
+
+export const getMe = async (req, res) => {
+  try {
+    const user = await User.findById(req.id)
+      .select("-password")
+      .populate("followRequestsReceived", "username profilePicture bio followers");
+
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
+        success: false,
+      });
+    }
+
+    const populatedPost = await Promise.all(
+      user.posts.map(async (postId) => {
+        const post = await Post.findById(postId);
+        if (post?.author?.equals(user._id)) {
+          return post;
+        }
+        return null;
+      })
+    );
+
+    return res.status(200).json({
+      success: true,
+      user: {
+        _id:user._id,
+        username:user.username,
+        email:user.email,
+        profilePicture:user.profilePicture,
+        bio:user.bio,
+        gender:user.gender,
+        followers:user.followers,
+        following:user.following,
+        followRequestsSent:user.followRequestsSent,
+        followRequestsReceived:user.followRequestsReceived,
+        posts:populatedPost.filter(Boolean),
+        bookmarks:user.bookmarks
+      },
+    });
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({
+      message: "Failed to fetch user",
+      success: false,
+    });
+  }
+};
+
+export const respondFollowRequest = async (req, res) => {
+  try {
+    const receiverId = req.id;
+    const senderId = req.params.id;
+    const action = req.params.action;
+
+    if (!["accept", "reject"].includes(action)) {
+      return res.status(400).json({
+        message: "Invalid request action",
+        success: false,
+      });
+    }
+
+    const receiver = await User.findById(receiverId);
+    const sender = await User.findById(senderId);
+
+    if (!receiver || !sender) {
+      return res.status(404).json({
+        message: "User not found",
+        success: false,
+      });
+    }
+
+    const hasRequest = receiver.followRequestsReceived.some((id) => id.toString() === senderId);
+    if (!hasRequest) {
+      return res.status(404).json({
+        message: "Follow request not found",
+        success: false,
+      });
+    }
+
+    const receiverUpdate = {
+      $pull: { followRequestsReceived: senderId },
+    };
+    const senderUpdate = {
+      $pull: { followRequestsSent: receiverId },
+    };
+
+    if (action === "accept") {
+      receiverUpdate.$addToSet = { followers: senderId };
+      senderUpdate.$addToSet = { following: receiverId };
+    }
+
+    await Promise.all([
+      User.updateOne({ _id: receiverId }, receiverUpdate),
+      User.updateOne({ _id: senderId }, senderUpdate),
+    ]);
+
+    return res.status(200).json({
+      message: action === "accept" ? "Follow request accepted" : "Follow request deleted",
+      accepted: action === "accept",
+      success: true,
+    });
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({
+      message: "Request update failed",
+      success: false,
+      error: error.message,
+    });
+  }
+};
+
+export const searchUsers = async (req, res) => {
+  try {
+    const query = String(req.query.q || "").trim();
+    if (!query) {
+      return res.status(200).json({
+        success: true,
+        users: [],
+      });
+    }
+
+    const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const users = await User.find({
+      _id: { $ne: req.id },
+      username: { $regex: escapedQuery, $options: "i" },
+    })
+      .select("username profilePicture bio followers")
+      .limit(20);
+
+    return res.status(200).json({
+      success: true,
+      users,
+    });
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({
+      message: "Search failed",
+      success: false,
     });
   }
 };

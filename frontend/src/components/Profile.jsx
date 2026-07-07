@@ -5,9 +5,12 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { Button } from './ui/button';
 import { Bookmark, Film, Grid3X3, Heart, MessageCircle, Tags } from 'lucide-react';
-import { getUserId } from '@/lib/api';
+import { apiUrl, getUserId } from '@/lib/api';
 import CommentDialog from './CommentDialog';
 import { setSelectedPost } from '@/redux/postSlice';
+import axios from 'axios';
+import { toast } from 'sonner';
+import { setAuthUser, setUserProfile } from '@/redux/authSlice';
 
 const Profile = () => {
   const params = useParams();
@@ -16,6 +19,7 @@ const Profile = () => {
   useGetUserProfile(userId);
   const [activeTab, setActiveTab] = useState('posts');
   const [openPost, setOpenPost] = useState(false);
+  const [followLoading, setFollowLoading] = useState(false);
   const hasValidUserId = userId && userId !== "undefined" && userId !== "null";
 
   const { userProfile, user } = useSelector(store => store.auth);
@@ -24,7 +28,9 @@ const Profile = () => {
   const currentUserId = getUserId(user);
   const profileUserId = getUserId(userProfile);
   const isLoggedInUserProfile = currentUserId === profileUserId;
-  const isFollowing = false;
+  const isFollowing = (Array.isArray(user?.following) ? user.following : []).some((id) => String(id) === String(profileUserId))
+    || (Array.isArray(userProfile?.followers) ? userProfile.followers : []).some((id) => String(id) === String(currentUserId));
+  const isRequested = (Array.isArray(user?.followRequestsSent) ? user.followRequestsSent : []).some((id) => String(id) === String(profileUserId));
 
   const handleTabChange = (tab) => {
     setActiveTab(tab);
@@ -33,6 +39,43 @@ const Profile = () => {
   const openPostHandler = (post) => {
     dispatch(setSelectedPost(post));
     setOpenPost(true);
+  }
+
+  const followOrUnfollowHandler = async () => {
+    if (!profileUserId || isLoggedInUserProfile || followLoading) return;
+
+    try {
+      setFollowLoading(true);
+      const res = await axios.post(apiUrl(`/api/v1/user/followunfollow/${profileUserId}`), {}, { withCredentials: true });
+      if (res.data.success) {
+        const following = Boolean(res.data.following);
+        const requested = Boolean(res.data.requested);
+        const currentFollowing = Array.isArray(user?.following) ? user.following.map(String) : [];
+        const currentRequestsSent = Array.isArray(user?.followRequestsSent) ? user.followRequestsSent.map(String) : [];
+        const currentFollowers = Array.isArray(userProfile?.followers) ? userProfile.followers.map(String) : [];
+
+        dispatch(setAuthUser({
+          ...user,
+          following: following
+            ? [...new Set([...currentFollowing, String(profileUserId)])]
+            : currentFollowing.filter((id) => id !== String(profileUserId)),
+          followRequestsSent: requested
+            ? [...new Set([...currentRequestsSent, String(profileUserId)])]
+            : currentRequestsSent.filter((id) => id !== String(profileUserId)),
+        }));
+        dispatch(setUserProfile({
+          ...userProfile,
+          followers: following
+            ? [...new Set([...currentFollowers, String(currentUserId)])]
+            : currentFollowers.filter((id) => id !== String(currentUserId)),
+        }));
+        toast.success(res.data.message);
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Action failed");
+    } finally {
+      setFollowLoading(false);
+    }
   }
 
   const posts = Array.isArray(userProfile?.posts) ? userProfile.posts : [];
@@ -90,11 +133,13 @@ const Profile = () => {
                 ) : (
                   isFollowing ? (
                     <>
-                      <Button variant='secondary' className='h-8 px-4 text-sm font-semibold'>Unfollow</Button>
+                      <Button onClick={followOrUnfollowHandler} disabled={followLoading} variant='secondary' className='h-8 px-4 text-sm font-semibold'>Following</Button>
                       <Button variant='secondary' className='h-8 px-4 text-sm font-semibold'>Message</Button>
                     </>
+                  ) : isRequested ? (
+                    <Button onClick={followOrUnfollowHandler} disabled={followLoading} variant='secondary' className='h-8 px-4 text-sm font-semibold'>Requested</Button>
                   ) : (
-                    <Button className='h-8 bg-[#0095F6] px-4 text-sm font-semibold hover:bg-[#3192d2]'>Follow</Button>
+                    <Button onClick={followOrUnfollowHandler} disabled={followLoading} className='h-8 bg-[#0095F6] px-4 text-sm font-semibold hover:bg-[#3192d2]'>Follow</Button>
                   )
                 )}
               </div>
@@ -130,12 +175,17 @@ const Profile = () => {
             ) : (
               isFollowing ? (
                 <>
-                  <Button variant='secondary' className='h-8 w-full'>Unfollow</Button>
+                  <Button onClick={followOrUnfollowHandler} disabled={followLoading} variant='secondary' className='h-8 w-full'>Following</Button>
+                  <Button variant='secondary' className='h-8 w-full'>Message</Button>
+                </>
+              ) : isRequested ? (
+                <>
+                  <Button onClick={followOrUnfollowHandler} disabled={followLoading} variant='secondary' className='h-8 w-full'>Requested</Button>
                   <Button variant='secondary' className='h-8 w-full'>Message</Button>
                 </>
               ) : (
                 <>
-                  <Button className='h-8 w-full bg-[#0095F6] hover:bg-[#3192d2]'>Follow</Button>
+                  <Button onClick={followOrUnfollowHandler} disabled={followLoading} className='h-8 w-full bg-[#0095F6] hover:bg-[#3192d2]'>Follow</Button>
                   <Button variant='secondary' className='h-8 w-full'>Message</Button>
                 </>
               )
