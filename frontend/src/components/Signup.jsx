@@ -9,6 +9,14 @@ import { useSelector } from 'react-redux';
 import { apiUrl, getUserId } from '@/lib/api';
 import { FaInstagram } from 'react-icons/fa';
 
+const passwordRules = [
+    { label: "8 characters", test: (value) => value.length >= 8 },
+    { label: "Uppercase letter", test: (value) => /[A-Z]/.test(value) },
+    { label: "Lowercase letter", test: (value) => /[a-z]/.test(value) },
+    { label: "Number", test: (value) => /\d/.test(value) },
+    { label: "Special character", test: (value) => /[^A-Za-z0-9]/.test(value) },
+];
+
 const Signup = () => {
     const [input, setInput] = useState({
         username: "",
@@ -17,6 +25,7 @@ const Signup = () => {
     });
     const [loading, setLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
+    const [passwordError, setPasswordError] = useState("");
     const {user} = useSelector(store=>store.auth);
     const navigate = useNavigate();
 
@@ -24,8 +33,15 @@ const Signup = () => {
         setInput({ ...input, [e.target.name]: e.target.value });
     }
 
+    const isPasswordValid = passwordRules.every((rule) => rule.test(input.password));
+
     const signupHandler = async (e) => {
         e.preventDefault();
+        if (!isPasswordValid) {
+            setPasswordError("Password must be at least 8 characters and include uppercase, lowercase, number and special character.");
+            return;
+        }
+        setPasswordError("");
         try {
             setLoading(true);
             const res = await axios.post(apiUrl('/api/v1/user/register'), input, {
@@ -111,6 +127,11 @@ const Signup = () => {
                                 {showPassword ? <EyeOff className='h-4 w-4' /> : <Eye className='h-4 w-4' />}
                             </button>
                         </div>
+                        {passwordError && (
+                            <p className='text-xs font-medium leading-4 text-red-500'>
+                                {passwordError}
+                            </p>
+                        )}
                     </div>
 
                     <p className='my-4 text-center text-xs leading-4 text-gray-500'>

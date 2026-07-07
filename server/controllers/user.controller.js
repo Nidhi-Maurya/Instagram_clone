@@ -8,6 +8,15 @@ import { Post } from "../models/post.modal.js";
 import { Comment } from "../models/comment.modal.js";
 import { getIO, getReceiverSocketId } from "../socket.js";
 
+const passwordRuleMessage = "Password must be at least 8 characters and include uppercase, lowercase, number and special character";
+const isStrongPassword = (password = "") => (
+  password.length >= 8
+  && /[A-Z]/.test(password)
+  && /[a-z]/.test(password)
+  && /\d/.test(password)
+  && /[^A-Za-z0-9]/.test(password)
+);
+
 export const register  = async(req,res)=>{
   try{
     const {username,email,password} =req.body;
@@ -15,6 +24,12 @@ export const register  = async(req,res)=>{
       return res.status(400).json({
         message:"fill the all fields",
         success:false,
+      })
+    }
+    if (!isStrongPassword(password)) {
+      return res.status(400).json({
+        message: passwordRuleMessage,
+        success: false,
       })
     }
     const user =await User.findOne({email});
