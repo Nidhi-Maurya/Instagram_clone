@@ -6,22 +6,48 @@ import bcrypt from "bcryptjs";
 import cloudinary from "../utils/cloudinary.js";
 import User from "../models/user.model.js";
 import { Reel } from "../models/reel.model.js";
+import { ReelComment } from "../models/reelComment.model.js";
 
 const seedSources = [
   {
-    source: "https://res.cloudinary.com/demo/video/upload/dog.mp4",
-    caption: "Golden hour walk. Demo reel.",
-    slug: "golden-hour-walk",
+    source: "https://media.w3.org/2010/05/sintel/trailer.mp4",
+    slug: "sintel-trailer",
   },
   {
-    source: "https://res.cloudinary.com/demo/video/upload/sea_turtle.mp4",
-    caption: "Ocean mood. Demo reel.",
-    slug: "ocean-mood",
+    source: "https://media.w3.org/2010/05/bunny/trailer.mp4",
+    slug: "bunny-trailer",
   },
   {
     source: "https://res.cloudinary.com/demo/video/upload/elephants.mp4",
-    caption: "Wildlife moment. Demo reel.",
-    slug: "wildlife-moment",
+    slug: "elephants",
+  },
+  {
+    source: "https://res.cloudinary.com/demo/video/upload/dog.mp4",
+    slug: "dog",
+  },
+  {
+    source: "https://res.cloudinary.com/demo/video/upload/sea_turtle.mp4",
+    slug: "sea-turtle",
+  },
+  {
+    source: "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4",
+    slug: "flower",
+  },
+  {
+    source: "https://samplelib.com/lib/preview/mp4/sample-5s.mp4",
+    slug: "sample-5s",
+  },
+  {
+    source: "https://samplelib.com/lib/preview/mp4/sample-10s.mp4",
+    slug: "sample-10s",
+  },
+  {
+    source: "https://samplelib.com/lib/preview/mp4/sample-15s.mp4",
+    slug: "sample-15s",
+  },
+  {
+    source: "https://samplelib.com/lib/preview/mp4/sample-20s.mp4",
+    slug: "sample-20s",
   },
 ];
 
@@ -53,7 +79,8 @@ const buildSeedItems = () => captions.map((caption, index) => {
   return {
     source: source.source,
     caption,
-    slug: `demo-reel-${String(index + 1).padStart(2, "0")}-${source.slug}`,
+    slug: `demo-reel-v2-${String(index + 1).padStart(2, "0")}-${source.slug}`,
+    startOffset: index % 2 === 0 ? "0" : "2",
   };
 });
 
@@ -100,20 +127,30 @@ const seedReels = async () => {
   const seedItems = buildSeedItems();
 
   let created = 0;
-  let skipped = 0;
+  const oldSeedReels = await Reel.find({ author: seedUser._id }).select("_id");
+  const oldSeedReelIds = oldSeedReels.map((reel) => reel._id);
+  if (oldSeedReelIds.length) {
+    await Promise.all([
+      ReelComment.deleteMany({ reel: { $in: oldSeedReelIds } }),
+      Reel.deleteMany({ _id: { $in: oldSeedReelIds } }),
+    ]);
+    console.log(`Removed old seed reels: ${oldSeedReelIds.length}`);
+  }
 
   for (const item of seedItems) {
-    const exists = await Reel.findOne({ author: seedUser._id, caption: item.caption });
-    if (exists) {
-      skipped += 1;
-      continue;
-    }
-
     const uploadResult = await uploadVideo(item);
+    const videoUrl = cloudinary.url(uploadResult.public_id, {
+      resource_type: "video",
+      secure: true,
+      transformation: [
+        { start_offset: item.startOffset, duration: "7", crop: "fill", width: 720, height: 1280, gravity: "center", quality: "auto" },
+      ],
+    });
+
     await Reel.create({
       author: seedUser._id,
       caption: item.caption,
-      video: uploadResult.secure_url,
+      video: videoUrl,
       thumbnail: uploadResult.secure_url?.replace(/\.(mp4|mov|webm)$/i, ".jpg") || "",
       views: Math.floor(Math.random() * 900) + 100,
     });
@@ -121,7 +158,7 @@ const seedReels = async () => {
     console.log(`Created ${created}: ${item.caption}`);
   }
 
-  console.log(`Seed complete. Created: ${created}, skipped: ${skipped}`);
+  console.log(`Seed complete. Created: ${created}`);
   await mongoose.disconnect();
 };
 

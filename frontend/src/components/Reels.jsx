@@ -3,15 +3,16 @@ import axios from 'axios'
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar'
 import { Button } from './ui/button'
 import { Dialog, DialogContent } from './ui/dialog'
-import { Bookmark, Heart, Loader2, MessageCircle, MoreHorizontal, Send, Volume2, VolumeX } from 'lucide-react'
+import { Bookmark, Heart, Loader2, MessageCircle, MoreHorizontal, Play, Send, Volume2, VolumeX } from 'lucide-react'
 import { apiUrl, getUserId } from '@/lib/api'
 import { useSelector } from 'react-redux'
 import { toast } from 'sonner'
 
 const getInitial = (username = '') => username.trim().charAt(0).toUpperCase() || 'U';
 
-const ReelCard = ({ reel, active, muted, onToggleMute, onLike, onOpenComments }) => {
+const ReelCard = ({ reel, active, muted, onToggleMute, onForceMute, onLike, onOpenComments }) => {
   const videoRef = useRef(null);
+  const [paused, setPaused] = useState(false);
   const { user } = useSelector(store => store.auth);
   const userId = getUserId(user);
   const likes = Array.isArray(reel?.likes) ? reel.likes : [];
@@ -22,17 +23,43 @@ const ReelCard = ({ reel, active, muted, onToggleMute, onLike, onOpenComments })
     const video = videoRef.current;
     if (!video) return;
     video.muted = muted;
-    if (active) {
-      video.play().catch(() => {});
+    if (active && !paused) {
+      video.play().catch(() => {
+        video.muted = true;
+        onForceMute();
+        video.play().catch(() => {});
+      });
     } else {
       video.pause();
     }
-  }, [active, muted]);
+  }, [active, muted, onForceMute, paused]);
+
+  useEffect(() => {
+    if (!active) setPaused(false);
+  }, [active]);
 
   useEffect(() => {
     if (!active || !reel?._id) return;
     axios.post(apiUrl(`/api/v1/reel/${reel._id}/view`), {}, { withCredentials: true }).catch(() => {});
   }, [active, reel?._id]);
+
+  const stopTouchAction = (event, action) => {
+    event.preventDefault();
+    event.stopPropagation();
+    action();
+  }
+
+  const togglePause = () => {
+    const video = videoRef.current;
+    if (!video || !active) return;
+    if (video.paused) {
+      setPaused(false);
+      video.play().catch(() => {});
+    } else {
+      setPaused(true);
+      video.pause();
+    }
+  }
 
   return (
     <section className='relative flex h-[calc(100dvh-8.5rem)] min-h-[560px] snap-start items-center justify-center overflow-hidden bg-black md:h-[calc(100dvh-2rem)] md:min-h-[640px] lg:h-dvh'>
@@ -43,50 +70,63 @@ const ReelCard = ({ reel, active, muted, onToggleMute, onLike, onOpenComments })
         playsInline
         preload='metadata'
         className='h-full w-full object-cover md:aspect-[9/16] md:h-[min(92dvh,760px)] md:w-auto md:rounded-[6px]'
-        onClick={onToggleMute}
       />
-
-      <div className='absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-black/10 md:mx-auto md:aspect-[9/16] md:h-[min(92dvh,760px)] md:rounded-[6px]' />
 
       <button
         type='button'
-        onClick={onToggleMute}
-        className='absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-black/35 text-white backdrop-blur'
+        onClick={togglePause}
+        className='absolute inset-0 z-0 cursor-default bg-transparent'
+        aria-label={paused ? 'Play reel' : 'Pause reel'}
+      />
+
+      <div className='pointer-events-none absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-black/10 md:mx-auto md:aspect-[9/16] md:h-[min(92dvh,760px)] md:rounded-[6px]' />
+
+      {paused && (
+        <div className='pointer-events-none absolute left-1/2 top-1/2 z-10 flex h-16 w-16 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-black/35 text-white backdrop-blur'>
+          <Play className='ml-1 h-8 w-8 fill-white' />
+        </div>
+      )}
+
+      <button
+        type='button'
+        onClick={(event) => stopTouchAction(event, onToggleMute)}
+        onTouchStart={(event) => event.stopPropagation()}
+        className='absolute right-4 top-4 z-20 flex h-9 w-9 touch-manipulation items-center justify-center rounded-full bg-black/35 text-white backdrop-blur'
         aria-label={muted ? 'Unmute reel' : 'Mute reel'}
       >
         {muted ? <VolumeX className='h-5 w-5' /> : <Volume2 className='h-5 w-5' />}
       </button>
 
-      <div className='absolute bottom-5 left-4 right-20 text-white md:left-1/2 md:ml-[-165px] md:w-[260px]'>
+      <div className='pointer-events-none absolute bottom-5 left-4 right-20 z-10 text-white md:left-1/2 md:ml-[-165px] md:w-[260px]'>
         <div className='mb-3 flex min-w-0 items-center gap-3'>
           <Avatar className='h-9 w-9 border border-white/70'>
             <AvatarImage src={reel?.author?.profilePicture} />
             <AvatarFallback className='bg-gray-200 text-xs font-semibold text-gray-700'>{getInitial(reel?.author?.username)}</AvatarFallback>
           </Avatar>
           <span className='min-w-0 truncate text-sm font-bold'>{reel?.author?.username || 'instagram_user'}</span>
-          <button type='button' className='h-7 rounded-lg border border-white/70 px-3 text-xs font-bold'>Follow</button>
+          <button type='button' className='pointer-events-auto h-7 touch-manipulation rounded-lg border border-white/70 px-3 text-xs font-bold'>Follow</button>
         </div>
         {reel?.caption && (
           <p className='line-clamp-2 break-words text-sm leading-5'>{reel.caption}</p>
         )}
       </div>
 
-      <div className='absolute bottom-5 right-3 flex flex-col items-center gap-5 text-white md:left-1/2 md:right-auto md:ml-[178px]'>
-        <button type='button' onClick={() => onLike(reel)} className='flex flex-col items-center gap-1'>
+      <div className='absolute bottom-5 right-3 z-20 flex flex-col items-center gap-5 text-white md:left-1/2 md:right-auto md:ml-[178px]'>
+        <button type='button' onClick={(event) => stopTouchAction(event, () => onLike(reel))} onTouchStart={(event) => event.stopPropagation()} className='flex touch-manipulation flex-col items-center gap-1'>
           <Heart className={`h-7 w-7 ${liked ? 'fill-red-500 text-red-500' : 'fill-transparent'}`} />
           <span className='text-xs font-bold'>{likes.length}</span>
         </button>
-        <button type='button' onClick={() => onOpenComments(reel)} className='flex flex-col items-center gap-1'>
+        <button type='button' onClick={(event) => stopTouchAction(event, () => onOpenComments(reel))} onTouchStart={(event) => event.stopPropagation()} className='flex touch-manipulation flex-col items-center gap-1'>
           <MessageCircle className='h-7 w-7' />
           <span className='text-xs font-bold'>{comments.length}</span>
         </button>
-        <button type='button' className='flex flex-col items-center gap-1'>
+        <button type='button' onClick={(event) => stopTouchAction(event, () => toast.info("Share coming soon"))} onTouchStart={(event) => event.stopPropagation()} className='flex touch-manipulation flex-col items-center gap-1'>
           <Send className='h-7 w-7' />
         </button>
-        <button type='button' className='flex flex-col items-center gap-1'>
+        <button type='button' onClick={(event) => stopTouchAction(event, () => toast.success("Saved"))} onTouchStart={(event) => event.stopPropagation()} className='flex touch-manipulation flex-col items-center gap-1'>
           <Bookmark className='h-7 w-7' />
         </button>
-        <button type='button' className='flex h-9 w-9 items-center justify-center rounded-full bg-black/35'>
+        <button type='button' onClick={(event) => stopTouchAction(event, () => {})} onTouchStart={(event) => event.stopPropagation()} className='flex h-9 w-9 touch-manipulation items-center justify-center rounded-full bg-black/35'>
           <MoreHorizontal className='h-6 w-6' />
         </button>
       </div>
@@ -101,7 +141,7 @@ const Reels = () => {
   const [loading, setLoading] = useState(true);
   const [fetchingMore, setFetchingMore] = useState(false);
   const [activeReelId, setActiveReelId] = useState("");
-  const [muted, setMuted] = useState(true);
+  const [muted, setMuted] = useState(false);
   const [commentOpen, setCommentOpen] = useState(false);
   const [selectedReel, setSelectedReel] = useState(null);
   const [commentText, setCommentText] = useState("");
@@ -222,6 +262,7 @@ const Reels = () => {
               active={activeReelId === reel._id}
               muted={muted}
               onToggleMute={() => setMuted((value) => !value)}
+              onForceMute={() => setMuted(true)}
               onLike={likeReelHandler}
               onOpenComments={openComments}
             />

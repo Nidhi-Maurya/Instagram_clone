@@ -50,13 +50,11 @@ export const getReelFeed = async (req, res) => {
     const page = Math.max(1, Number(req.query.page) || 1);
     const limit = Math.min(12, Math.max(3, Number(req.query.limit) || 6));
     const skip = (page - 1) * limit;
-    const currentUser = await User.findById(req.id).select("following");
-    const followingIds = (currentUser?.following || []).map((id) => id.toString());
 
     const reels = await Reel.find()
       .sort({ createdAt: -1 })
       .skip(skip)
-      .limit(limit * 3)
+      .limit(limit)
       .populate({ path: "author", select: "username profilePicture followers" })
       .populate({
         path: "comments",
@@ -64,29 +62,10 @@ export const getReelFeed = async (req, res) => {
         populate: { path: "author", select: "username profilePicture" },
       });
 
-    const rankedReels = reels
-      .map((reel) => {
-        const authorId = reel.author?._id?.toString();
-        const likesCount = Array.isArray(reel.likes) ? reel.likes.length : 0;
-        const commentsCount = Array.isArray(reel.comments) ? reel.comments.length : 0;
-        const authorFollowersCount = Array.isArray(reel.author?.followers) ? reel.author.followers.length : 0;
-        const ageHours = Math.max(1, (Date.now() - new Date(reel.createdAt).getTime()) / (1000 * 60 * 60));
-        const recencyScore = Math.max(0, 72 - ageHours) / 72;
-        const discoveryBoost = authorId && !followingIds.includes(authorId) ? 8 : 0;
-
-        return {
-          reel,
-          score: likesCount * 3 + commentsCount * 4 + reel.views * 0.2 + authorFollowersCount * 0.3 + discoveryBoost + recencyScore * 10,
-        };
-      })
-      .sort((a, b) => b.score - a.score)
-      .slice(0, limit)
-      .map((item) => item.reel);
-
     return res.status(200).json({
-      reels: rankedReels,
+      reels,
       page,
-      hasMore: reels.length > limit,
+      hasMore: reels.length === limit,
       success: true,
     });
   } catch (error) {
