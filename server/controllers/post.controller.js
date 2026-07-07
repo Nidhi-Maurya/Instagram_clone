@@ -71,6 +71,58 @@ return res.status(200).json({
   }
 }
 
+export const getExplorePosts = async (req, res) => {
+  try {
+    const currentUserId = req.id;
+    const currentUser = await User.findById(currentUserId).select("following");
+    const followingIds = (currentUser?.following || []).map((id) => id.toString());
+
+    const posts = await Post.find({ author: { $ne: currentUserId } })
+      .sort({ createdAt: -1 })
+      .limit(120)
+      .populate({ path: "author", select: "username profilePicture followers" })
+      .populate({
+        path: "comments",
+        sort: { createdAt: -1 },
+        populate: { path: "author", select: "username profilePicture" },
+      });
+
+    const rankedPosts = posts
+      .map((post) => {
+        const authorId = post.author?._id?.toString();
+        const likesCount = Array.isArray(post.likes) ? post.likes.length : 0;
+        const commentsCount = Array.isArray(post.comments) ? post.comments.length : 0;
+        const isNotFollowingAuthor = authorId && !followingIds.includes(authorId);
+        const authorFollowersCount = Array.isArray(post.author?.followers) ? post.author.followers.length : 0;
+        const ageHours = Math.max(1, (Date.now() - new Date(post.createdAt).getTime()) / (1000 * 60 * 60));
+        const recencyScore = Math.max(0, 48 - ageHours) / 48;
+
+        return {
+          post,
+          score:
+            likesCount * 3 +
+            commentsCount * 4 +
+            authorFollowersCount * 0.4 +
+            (isNotFollowingAuthor ? 8 : 0) +
+            recencyScore * 10,
+        };
+      })
+      .sort((a, b) => b.score - a.score)
+      .map((item) => item.post);
+
+    return res.status(200).json({
+      success: true,
+      posts: rankedPosts,
+    });
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({
+      message: "Explore posts failed",
+      success: false,
+    });
+  }
+};
+
 
 // ! user all post 
 

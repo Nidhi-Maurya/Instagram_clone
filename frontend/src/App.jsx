@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import ChatPage from './components/ChatPage'
 import EditProfile from './components/EditProfile'
 import Home from './components/Home'
+import Explore from './components/Explore'
 import Login from './components/Login'
 import MainLayout from './components/MainLayout'
 import Profile from './components/Profile'
@@ -38,6 +39,10 @@ const browserRouter = createBrowserRouter([
       {
         path: '/chat',
         element: <ChatPage />
+      },
+      {
+        path: '/explore',
+        element: <Explore />
       },
     ]
   },
