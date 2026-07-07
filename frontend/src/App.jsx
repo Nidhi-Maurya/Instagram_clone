@@ -14,7 +14,7 @@ import { setOnlineUsers } from './redux/chatSlice'
 import { setLikeNotification, setMessageNotification } from './redux/rtnSlice'
 import { updateUserProfilePostLikes } from './redux/authSlice'
 import ProtectedRoutes from './components/ProtectedRoutes'
-import { getUserId } from './lib/api'
+import { API_BASE_URL, getUserId } from './lib/api'
 
 
 const browserRouter = createBrowserRouter([
@@ -58,7 +58,7 @@ function App() {
   useEffect(() => {
     const userId = getUserId(user);
     if (userId) {
-      const socketio = io('http://localhost:8000', {
+      const socketio = io(API_BASE_URL || undefined, {
         query: {
           userId
         },
