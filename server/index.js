@@ -21,21 +21,13 @@ const app= express();
 const server = createServer(app);
 initSocket(server);
 
-
-
-app.get("/", (req,res)=>{
-  res.send("Hello Nidhi ");
-})
-
-
-
 // ! middle ware 
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 const corsOptions = {
-  origin: process.env.CLIENT_URL || 'http://localhost:5173',
+  origin :'http://localhost:5173',
   credentials:true,
 }
 
@@ -49,7 +41,6 @@ app.use("/api/v1/user",userRoute);
 // ! api for post 
 app.use("/api/v1/post",postRoute);
 app.use("/api/v1/message",messageRoute)
-
 
 app.use(express.static(path.join(__dirname, "/frontend/dist")));
 app.get("/*splat", (req, res) => {
