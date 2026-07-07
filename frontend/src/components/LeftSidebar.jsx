@@ -1,5 +1,6 @@
-import { AlertTriangle, Heart, Home, Instagram, Loader2, LogOut, MessageCircle, PlusSquare, Search, TrendingUp, X } from 'lucide-react'
+import { AlertTriangle, Heart, Home, Loader2, LogOut, MessageCircle, PlusSquare, Search, TrendingUp, X } from 'lucide-react'
 import React, { useEffect, useState } from 'react'
+import { FaInstagram } from 'react-icons/fa'
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar'
 import { toast } from 'sonner'
 import axios from 'axios'
@@ -345,7 +346,7 @@ const LeftSidebar = () => {
                     else if (!isNotification) sidebarHandler(item.text);
                 }}
                 onKeyDown={(e) => e.key === 'Enter' && !isNotification && sidebarHandler(item.text)}
-                className='relative flex min-h-11 min-w-10 cursor-pointer items-center justify-center rounded-lg p-1 hover:bg-gray-100 sm:min-w-12 sm:p-2 lg:my-3 lg:w-full lg:justify-start lg:gap-3 lg:p-3'
+                className={`relative min-h-11 min-w-10 cursor-pointer items-center justify-center rounded-lg p-1 hover:bg-gray-100 sm:min-w-12 sm:p-2 lg:my-3 lg:w-full lg:justify-start lg:gap-3 lg:p-3 ${item.mobileHidden ? 'hidden lg:flex' : 'flex'}`}
             >
                 {item.icon}
                 <span className='sr-only lg:not-sr-only'>{item.text}</span>
@@ -415,8 +416,8 @@ const LeftSidebar = () => {
         { icon: <Home />, text: "Home" },
         { icon: <Search />, text: "Search" },
         { icon: <TrendingUp />, text: "Explore" },
-        { icon: <MessageCircle />, text: "Messages" },
-        { icon: <Heart />, text: "Notifications" },
+        { icon: <MessageCircle />, text: "Messages", mobileHidden: true },
+        { icon: <Heart />, text: "Notifications", mobileHidden: true },
         { icon: <PlusSquare />, text: "Create" },
         {
             icon: (
@@ -427,17 +428,67 @@ const LeftSidebar = () => {
             ),
             text: "Profile"
         },
-        { icon: <LogOut />, text: "Logout" },
+        { icon: <LogOut />, text: "Logout", mobileHidden: true },
     ]
 
     const visibleSearchItems = searchQuery.trim() ? searchResults : recentSearches;
 
     return (
-        <aside className='fixed bottom-0 left-0 z-40 w-full border-t border-gray-200 bg-white px-2 lg:top-0 lg:h-dvh lg:w-64 lg:border-r lg:border-t-0 lg:px-4'>
+        <>
+        <header className='fixed left-0 top-0 z-40 flex h-14 w-full items-center justify-between border-b border-gray-200 bg-white px-4 lg:hidden'>
+            <button type='button' onClick={() => navigate("/")} className='flex min-w-0 items-center gap-2' aria-label='Instagram home'>
+                <span className='flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-tr from-[#feda75] via-[#d62976] to-[#4f5bd5] text-white'>
+                    <FaInstagram className='h-6 w-6' aria-hidden='true' />
+                </span>
+                <span
+                    className='bg-gradient-to-r from-[#feda75] via-[#d62976] to-[#4f5bd5] bg-clip-text text-[25px] font-semibold leading-none tracking-normal text-transparent'
+                    style={{ fontFamily: '"Segoe Script", "Brush Script MT", cursive' }}
+                >
+                    Instagram
+                </span>
+            </button>
+            <div className='flex items-center gap-2'>
+                <button
+                    type='button'
+                    onClick={() => notificationCount > 0 && setMobileNotificationOpen(true)}
+                    className='relative flex h-10 w-10 items-center justify-center rounded-full hover:bg-gray-100'
+                    aria-label='Notifications'
+                >
+                    <Heart className='h-6 w-6' />
+                    {notificationCount > 0 && (
+                        <span className='absolute right-1 top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1 text-xs font-semibold text-white'>
+                            {notificationCount}
+                        </span>
+                    )}
+                </button>
+                <button
+                    type='button'
+                    onClick={() => navigate("/chat")}
+                    className='relative flex h-10 w-10 items-center justify-center rounded-full hover:bg-gray-100'
+                    aria-label='Messages'
+                >
+                    <MessageCircle className='h-6 w-6' />
+                    {messageNotification.length > 0 && (
+                        <span className='absolute right-1 top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1 text-xs font-semibold text-white'>
+                            {messageNotification.length}
+                        </span>
+                    )}
+                </button>
+            </div>
+        </header>
+
+        <aside className='fixed bottom-0 left-0 z-40 w-full border-t border-gray-200 bg-white px-2 py-1 lg:top-0 lg:h-dvh lg:w-64 lg:border-r lg:border-t-0 lg:px-4 lg:py-0'>
             <div className='flex h-full flex-row items-center justify-around lg:flex-col lg:items-stretch lg:justify-start'>
-                <h1 className='hidden my-8 items-center gap-2 pl-3 text-xl font-bold lg:flex'>
-                    <Instagram className='h-7 w-7' />
-                    <span>LOGO</span>
+                <h1 className='my-8 hidden items-center gap-3 pl-3 lg:flex'>
+                    <span className='flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-tr from-[#feda75] via-[#d62976] to-[#4f5bd5] text-white'>
+                        <FaInstagram className='h-6 w-6' aria-hidden='true' />
+                    </span>
+                    <span
+                        className='bg-gradient-to-r from-[#feda75] via-[#d62976] to-[#4f5bd5] bg-clip-text text-[28px] font-semibold leading-none tracking-normal text-transparent'
+                        style={{ fontFamily: '"Segoe Script", "Brush Script MT", cursive' }}
+                    >
+                        Instagram
+                    </span>
                 </h1>
                 <div className='flex w-full items-center justify-around lg:block'>
                     {sidebarItems.map(renderNotificationItem)}
@@ -656,6 +707,7 @@ const LeftSidebar = () => {
             )}
 
         </aside>
+        </>
     )
 }
 

@@ -4,9 +4,9 @@ import LeftSidebar from './LeftSidebar'
 
 const MainLayout = () => {
   return (
-    <div className='min-h-dvh bg-white text-slate-950'>
+    <div className='min-h-dvh overflow-x-hidden bg-white text-slate-950'>
         <LeftSidebar/>
-        <main className='min-h-dvh pb-20 lg:ml-64 lg:pb-0'>
+        <main className='min-h-dvh min-w-0 pb-20 pt-14 lg:ml-64 lg:pb-0 lg:pt-0'>
             <Outlet/>
         </main>
     </div>

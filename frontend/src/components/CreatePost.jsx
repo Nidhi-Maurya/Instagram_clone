@@ -73,8 +73,8 @@ const CreatePost = ({ open, setOpen }) => {
       <DialogContent onInteractOutside={(e) => {
         e.preventDefault();
         closeDialog();
-      }} className='w-[calc(100vw-1rem)] max-w-[920px] gap-0 overflow-hidden rounded-xl border-0 p-0 shadow-2xl sm:rounded-xl'>
-        <DialogHeader className='relative flex h-11 shrink-0 items-center justify-center border-b border-gray-200 px-12 text-center'>
+      }} className='max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-[920px] gap-0 overflow-hidden rounded-xl border-0 p-0 shadow-2xl sm:max-h-[calc(100dvh-2rem)] sm:rounded-xl xl:max-w-[980px]'>
+        <DialogHeader className='relative flex h-11 shrink-0 items-center justify-center border-b border-gray-200 px-14 text-center'>
           <button
             type='button'
             onClick={closeDialog}
@@ -89,7 +89,7 @@ const CreatePost = ({ open, setOpen }) => {
               type='button'
               disabled={loading}
               onClick={createPostHandler}
-              className='absolute right-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-[#0095F6] disabled:text-gray-300'
+              className='absolute right-3 top-1/2 max-w-20 -translate-y-1/2 truncate text-sm font-semibold text-[#0095F6] disabled:text-gray-300 sm:right-4'
             >
               {loading ? "Sharing..." : "Share"}
             </button>
@@ -97,28 +97,28 @@ const CreatePost = ({ open, setOpen }) => {
         </DialogHeader>
 
         {!imagePreview ? (
-          <div className='flex min-h-[480px] flex-col items-center justify-center px-6 text-center'>
-            <div className='mb-4 flex h-24 w-24 items-center justify-center rounded-full border-2 border-black'>
-              <ImagePlus className='h-12 w-12' />
+          <div className='flex min-h-[360px] flex-col items-center justify-center px-6 py-10 text-center sm:min-h-[480px]'>
+            <div className='mb-4 flex h-20 w-20 items-center justify-center rounded-full border-2 border-black sm:h-24 sm:w-24'>
+              <ImagePlus className='h-10 w-10 sm:h-12 sm:w-12' />
             </div>
-            <p className='mb-6 text-xl font-light'>Drag photos and videos here</p>
+            <p className='mb-6 text-lg font-light sm:text-xl'>Drag photos and videos here</p>
             <input ref={imageRef} type='file' accept='image/*' className='hidden' onChange={fileChangeHandler} />
             <button
               type='button'
               onClick={() => imageRef.current.click()}
-              className='rounded-lg bg-[#0095F6] px-4 py-2 text-sm font-semibold text-white hover:bg-[#1877F2]'
+              className='max-w-full rounded-lg bg-[#0095F6] px-4 py-2 text-sm font-semibold text-white hover:bg-[#1877F2]'
             >
               Select from computer
             </button>
           </div>
         ) : (
-          <div className='grid max-h-[calc(100dvh-5rem)] min-h-[520px] grid-cols-1 overflow-hidden md:grid-cols-[minmax(0,1fr)_340px]'>
-            <div className='flex min-h-0 items-center justify-center bg-black'>
+          <div className='flex h-[calc(100dvh-4rem)] max-h-[760px] min-h-0 flex-col overflow-hidden md:grid md:h-auto md:min-h-[520px] md:grid-cols-[minmax(0,1fr)_340px] lg:min-h-[560px]'>
+            <div className='flex min-h-0 flex-1 items-center justify-center bg-black md:flex-none'>
               <img src={imagePreview} alt="preview_img" className='max-h-full w-full object-contain' />
             </div>
 
-            <aside className='flex min-h-0 flex-col border-t border-gray-200 bg-white md:border-l md:border-t-0'>
-              <div className='flex min-w-0 items-center gap-3 px-4 py-4'>
+            <aside className='flex max-h-[45%] min-h-[240px] flex-col overflow-y-auto border-t border-gray-200 bg-white md:max-h-none md:min-h-0 md:overflow-hidden md:border-l md:border-t-0'>
+              <div className='flex min-w-0 shrink-0 items-center gap-3 px-4 py-3 sm:py-4'>
                 <Avatar className='h-8 w-8 shrink-0'>
                   <AvatarImage src={user?.profilePicture} alt="img" />
                   <AvatarFallback>CN</AvatarFallback>
@@ -128,12 +128,12 @@ const CreatePost = ({ open, setOpen }) => {
                 </div>
               </div>
 
-              <div className='border-b border-gray-100 px-4'>
+              <div className='shrink-0 border-b border-gray-100 px-4'>
                 <Textarea
                   value={caption}
                   onChange={(e) => setCaption(e.target.value)}
                   maxLength={2200}
-                  className="min-h-36 resize-none border-none px-0 text-base focus-visible:ring-transparent focus-visible:ring-offset-0"
+                  className="min-h-24 resize-none border-none px-0 text-sm focus-visible:ring-transparent focus-visible:ring-offset-0 sm:min-h-36 sm:text-base"
                   placeholder="Write a caption..."
                 />
                 <div className='mb-3 flex items-center justify-between text-gray-400'>
@@ -142,12 +142,12 @@ const CreatePost = ({ open, setOpen }) => {
                 </div>
               </div>
 
-              <button type='button' className='flex h-12 items-center justify-between border-b border-gray-100 px-4 text-left text-sm text-gray-500'>
+              <button type='button' className='flex h-11 shrink-0 items-center justify-between border-b border-gray-100 px-4 text-left text-sm text-gray-500 sm:h-12'>
                 <span>Add location</span>
                 <MapPin className='h-5 w-5' />
               </button>
 
-              <button type='button' onClick={() => imageRef.current.click()} className='flex h-12 items-center px-4 text-sm font-semibold text-[#0095F6] hover:bg-gray-50'>
+              <button type='button' onClick={() => imageRef.current.click()} className='flex h-11 shrink-0 items-center px-4 text-sm font-semibold text-[#0095F6] hover:bg-gray-50 sm:h-12'>
                 Change image
               </button>
               <input ref={imageRef} type='file' accept='image/*' className='hidden' onChange={fileChangeHandler} />
