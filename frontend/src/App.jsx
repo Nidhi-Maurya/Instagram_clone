@@ -3,6 +3,7 @@ import ChatPage from './components/ChatPage'
 import EditProfile from './components/EditProfile'
 import Home from './components/Home'
 import Explore from './components/Explore'
+import Reels from './components/Reels'
 import Login from './components/Login'
 import MainLayout from './components/MainLayout'
 import Profile from './components/Profile'
@@ -43,6 +44,10 @@ const browserRouter = createBrowserRouter([
       {
         path: '/explore',
         element: <Explore />
+      },
+      {
+        path: '/reels',
+        element: <Reels />
       },
     ]
   },

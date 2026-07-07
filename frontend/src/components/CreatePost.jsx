@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader } from './ui/dialog'
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { Textarea } from './ui/textarea';
 import { readFileAsDataURL } from '@/lib/utils';
-import { ImagePlus, Loader2, MapPin, Smile, X } from 'lucide-react';
+import { Film, ImagePlus, Loader2, MapPin, Smile, X } from 'lucide-react';
 import { toast } from 'sonner';
 import axios from 'axios';
 import { useDispatch, useSelector } from 'react-redux';
@@ -12,9 +12,11 @@ import { apiUrl } from '@/lib/api';
 
 const CreatePost = ({ open, setOpen }) => {
   const imageRef = useRef();
+  const videoUrlRef = useRef("");
   const [file, setFile] = useState("");
   const [caption, setCaption] = useState("");
-  const [imagePreview, setImagePreview] = useState("");
+  const [mediaPreview, setMediaPreview] = useState("");
+  const [mode, setMode] = useState("post");
   const [loading, setLoading] = useState(false);
   const {user} = useSelector(store=>store.auth);
   const {posts} = useSelector(store=>store.post);
@@ -23,16 +25,28 @@ const CreatePost = ({ open, setOpen }) => {
   const fileChangeHandler = async (e) => {
     const file = e.target.files?.[0];
     if (file) {
+      if (videoUrlRef.current) URL.revokeObjectURL(videoUrlRef.current);
       setFile(file);
-      const dataUrl = await readFileAsDataURL(file);
-      setImagePreview(dataUrl);
+      if (mode === "reel") {
+        const objectUrl = URL.createObjectURL(file);
+        videoUrlRef.current = objectUrl;
+        setMediaPreview(objectUrl);
+      } else {
+        const dataUrl = await readFileAsDataURL(file);
+        setMediaPreview(dataUrl);
+      }
     }
   }
 
   const resetPostState = () => {
+    if (videoUrlRef.current) {
+      URL.revokeObjectURL(videoUrlRef.current);
+      videoUrlRef.current = "";
+    }
     setFile("");
     setCaption("");
-    setImagePreview("");
+    setMediaPreview("");
+    setMode("post");
     setLoading(false);
     if (imageRef.current) imageRef.current.value = "";
   }
@@ -46,7 +60,7 @@ const CreatePost = ({ open, setOpen }) => {
   const createPostHandler = async (e) => {
     const formData = new FormData();
     formData.append("caption", caption);
-    if (imagePreview) formData.append("image", file);
+    if (mediaPreview) formData.append("image", file);
     try {
       setLoading(true);
       const res = await axios.post(apiUrl('/api/v1/post/addpost'), formData, {
@@ -68,6 +82,45 @@ const CreatePost = ({ open, setOpen }) => {
     }
   }
 
+  const createReelHandler = async () => {
+    const formData = new FormData();
+    formData.append("caption", caption);
+    if (mediaPreview) formData.append("video", file);
+    try {
+      setLoading(true);
+      const res = await axios.post(apiUrl('/api/v1/reel/create'), formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        withCredentials: true,
+      });
+      if (res.data.success) {
+        toast.success(res.data.message);
+        resetPostState();
+        setOpen(false);
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Reel upload failed");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const shareHandler = () => {
+    if (mode === "reel") createReelHandler();
+    else createPostHandler();
+  }
+
+  const modeChangeHandler = (nextMode) => {
+    if (loading || nextMode === mode) return;
+    if (videoUrlRef.current) {
+      URL.revokeObjectURL(videoUrlRef.current);
+      videoUrlRef.current = "";
+    }
+    setMode(nextMode);
+    setFile("");
+    setMediaPreview("");
+    if (imageRef.current) imageRef.current.value = "";
+  }
+
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && closeDialog()}>
       <DialogContent onInteractOutside={(e) => {
@@ -83,12 +136,12 @@ const CreatePost = ({ open, setOpen }) => {
           >
             <X className='h-5 w-5' />
           </button>
-          <h2 className='text-base font-semibold'>{imagePreview ? "Create new post" : "Create new post"}</h2>
-          {imagePreview && (
+          <h2 className='text-base font-semibold'>{mediaPreview ? (mode === "reel" ? "Create new reel" : "Create new post") : "Create"}</h2>
+          {mediaPreview && (
             <button
               type='button'
               disabled={loading}
-              onClick={createPostHandler}
+              onClick={shareHandler}
               className='absolute right-3 top-1/2 max-w-20 -translate-y-1/2 truncate text-sm font-semibold text-[#0095F6] disabled:text-gray-300 sm:right-4'
             >
               {loading ? "Sharing..." : "Share"}
@@ -96,13 +149,31 @@ const CreatePost = ({ open, setOpen }) => {
           )}
         </DialogHeader>
 
-        {!imagePreview ? (
+        {!mediaPreview ? (
           <div className='flex min-h-[360px] flex-col items-center justify-center px-6 py-10 text-center sm:min-h-[480px]'>
-            <div className='mb-4 flex h-20 w-20 items-center justify-center rounded-full border-2 border-black sm:h-24 sm:w-24'>
-              <ImagePlus className='h-10 w-10 sm:h-12 sm:w-12' />
+            <div className='mb-8 flex rounded-lg bg-gray-100 p-1'>
+              <button
+                type='button'
+                onClick={() => modeChangeHandler("post")}
+                className={`flex h-9 items-center gap-2 rounded-md px-4 text-sm font-semibold ${mode === "post" ? 'bg-white shadow-sm' : 'text-gray-500'}`}
+              >
+                <ImagePlus className='h-4 w-4' />
+                Post
+              </button>
+              <button
+                type='button'
+                onClick={() => modeChangeHandler("reel")}
+                className={`flex h-9 items-center gap-2 rounded-md px-4 text-sm font-semibold ${mode === "reel" ? 'bg-white shadow-sm' : 'text-gray-500'}`}
+              >
+                <Film className='h-4 w-4' />
+                Reel
+              </button>
             </div>
-            <p className='mb-6 text-lg font-light sm:text-xl'>Drag photos and videos here</p>
-            <input ref={imageRef} type='file' accept='image/*' className='hidden' onChange={fileChangeHandler} />
+            <div className='mb-4 flex h-20 w-20 items-center justify-center rounded-full border-2 border-black sm:h-24 sm:w-24'>
+              {mode === "reel" ? <Film className='h-10 w-10 sm:h-12 sm:w-12' /> : <ImagePlus className='h-10 w-10 sm:h-12 sm:w-12' />}
+            </div>
+            <p className='mb-6 text-lg font-light sm:text-xl'>{mode === "reel" ? "Select a video for your reel" : "Drag photos here"}</p>
+            <input ref={imageRef} type='file' accept={mode === "reel" ? 'video/*' : 'image/*'} className='hidden' onChange={fileChangeHandler} />
             <button
               type='button'
               onClick={() => imageRef.current.click()}
@@ -114,7 +185,11 @@ const CreatePost = ({ open, setOpen }) => {
         ) : (
           <div className='flex h-[calc(100dvh-4rem)] max-h-[760px] min-h-0 flex-col overflow-hidden md:grid md:h-auto md:min-h-[520px] md:grid-cols-[minmax(0,1fr)_340px] lg:min-h-[560px]'>
             <div className='flex min-h-0 flex-1 items-center justify-center bg-black md:flex-none'>
-              <img src={imagePreview} alt="preview_img" className='max-h-full w-full object-contain' />
+              {mode === "reel" ? (
+                <video src={mediaPreview} controls muted className='max-h-full w-full object-contain' />
+              ) : (
+                <img src={mediaPreview} alt="preview_img" className='max-h-full w-full object-contain' />
+              )}
             </div>
 
             <aside className='flex max-h-[45%] min-h-[240px] flex-col overflow-y-auto border-t border-gray-200 bg-white md:max-h-none md:min-h-0 md:overflow-hidden md:border-l md:border-t-0'>
@@ -148,9 +223,9 @@ const CreatePost = ({ open, setOpen }) => {
               </button>
 
               <button type='button' onClick={() => imageRef.current.click()} className='flex h-11 shrink-0 items-center px-4 text-sm font-semibold text-[#0095F6] hover:bg-gray-50 sm:h-12'>
-                Change image
+                Change {mode === "reel" ? "video" : "image"}
               </button>
-              <input ref={imageRef} type='file' accept='image/*' className='hidden' onChange={fileChangeHandler} />
+              <input ref={imageRef} type='file' accept={mode === "reel" ? 'video/*' : 'image/*'} className='hidden' onChange={fileChangeHandler} />
 
               {loading && (
                 <div className='mt-auto flex items-center justify-center gap-2 border-t border-gray-100 px-4 py-4 text-sm font-semibold text-gray-600'>

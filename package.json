@@ -9,7 +9,8 @@
    
     "dev": "nodemon server/index.js",
     "build":"npm install && npm install --prefix frontend && npm run build --prefix frontend",
-    "start":"node server/index.js"
+    "start":"node server/index.js",
+    "seed:reels":"node server/scripts/seedDummyReels.js"
   },
   "keywords": [],
   "author": "",

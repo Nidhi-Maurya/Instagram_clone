@@ -1,4 +1,4 @@
-import { AlertTriangle, Heart, Home, Loader2, LogOut, MessageCircle, PlusSquare, Search, TrendingUp, X } from 'lucide-react'
+import { AlertTriangle, Film, Heart, Home, Loader2, LogOut, MessageCircle, PlusSquare, Search, TrendingUp, X } from 'lucide-react'
 import React, { useEffect, useState } from 'react'
 import { FaInstagram } from 'react-icons/fa'
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar'
@@ -97,6 +97,8 @@ const LeftSidebar = () => {
             setSearchOpen(true);
         } else if (textType === "Explore") {
             navigate("/explore");
+        } else if (textType === "Reels") {
+            navigate("/reels");
         } else if (textType === 'Messages') {
             navigate("/chat");
         }
@@ -416,6 +418,7 @@ const LeftSidebar = () => {
         { icon: <Home />, text: "Home" },
         { icon: <Search />, text: "Search" },
         { icon: <TrendingUp />, text: "Explore" },
+        { icon: <Film />, text: "Reels" },
         { icon: <MessageCircle />, text: "Messages", mobileHidden: true },
         { icon: <Heart />, text: "Notifications", mobileHidden: true },
         { icon: <PlusSquare />, text: "Create" },

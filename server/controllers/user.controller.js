@@ -6,6 +6,8 @@ import cloudinary from "../utils/cloudinary.js";
 import getDataUri from "../utils/datauri.js";
 import { Post } from "../models/post.modal.js";
 import { Comment } from "../models/comment.modal.js";
+import { Reel } from "../models/reel.model.js";
+import { ReelComment } from "../models/reelComment.model.js";
 import { getIO, getReceiverSocketId } from "../socket.js";
 
 const passwordRuleMessage = "Password must be at least 8 characters and include uppercase, lowercase, number and special character";
@@ -524,16 +526,31 @@ export const deleteAccount = async (req, res) => {
     const userPostIds = userPosts.map((post) => post._id);
     const userComments = await Comment.find({ author: userId }).select("_id");
     const userCommentIds = userComments.map((comment) => comment._id);
+    const userReels = await Reel.find({ author: userId }).select("_id");
+    const userReelIds = userReels.map((reel) => reel._id);
+    const userReelComments = await ReelComment.find({ author: userId }).select("_id");
+    const userReelCommentIds = userReelComments.map((comment) => comment._id);
 
     await Promise.all([
       Comment.deleteMany({ $or: [{ author: userId }, { post: { $in: userPostIds } }] }),
+      ReelComment.deleteMany({ $or: [{ author: userId }, { reel: { $in: userReelIds } }] }),
       Post.deleteMany({ author: userId }),
+      Reel.deleteMany({ author: userId }),
       Post.updateMany(
         {},
         {
           $pull: {
             likes: userId,
             comments: { $in: userCommentIds },
+          },
+        }
+      ),
+      Reel.updateMany(
+        {},
+        {
+          $pull: {
+            likes: userId,
+            comments: { $in: userReelCommentIds },
           },
         }
       ),

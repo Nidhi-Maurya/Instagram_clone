@@ -9,6 +9,7 @@ import { createServer } from "http";
 import userRoute from "./routes/user.route.js"
 import postRoute from "./routes/post.route.js"
 import messageRoute from "./routes/message.route.js"
+import reelRoute from "./routes/reel.route.js"
 import { initSocket } from "./socket.js";
 import path from "path"
 
@@ -41,6 +42,7 @@ app.use("/api/v1/user",userRoute);
 // ! api for post 
 app.use("/api/v1/post",postRoute);
 app.use("/api/v1/message",messageRoute)
+app.use("/api/v1/reel", reelRoute)
 
 app.use(express.static(path.join(__dirname, "/frontend/dist")));
 app.get("/*splat", (req, res) => {
