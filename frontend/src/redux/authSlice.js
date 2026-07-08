@@ -56,6 +56,21 @@ const authSlice = createSlice({
                 state.user.posts = state.user.posts.map(updatePost);
             }
         },
+        removeUserProfilePost:(state,action) => {
+            const postId = action.payload;
+            if (state.userProfile?.posts) {
+                state.userProfile.posts = state.userProfile.posts.filter((post) => post?._id !== postId);
+            }
+            if (state.user?.posts) {
+                state.user.posts = state.user.posts.filter((post) => post?._id !== postId);
+            }
+            if (state.user?.bookmarks) {
+                state.user.bookmarks = state.user.bookmarks.filter((post) => post?._id !== postId && post !== postId);
+            }
+            if (state.userProfile?.bookmarks) {
+                state.userProfile.bookmarks = state.userProfile.bookmarks.filter((post) => post?._id !== postId && post !== postId);
+            }
+        },
         setSelectedUser:(state,action) => {
             state.selectedUser = action.payload;
         }
@@ -67,6 +82,7 @@ export const {
     setUserProfile,
     updateUserProfilePostLikes,
     updateUserProfilePostComments,
+    removeUserProfilePost,
     setSelectedUser,
 } = authSlice.actions;
 export default authSlice.reducer;

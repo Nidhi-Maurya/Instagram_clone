@@ -4,13 +4,16 @@ import useGetUserProfile from '@/hooks/useGetUserProfile';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { Button } from './ui/button';
-import { Bookmark, Film, Grid3X3, Heart, MessageCircle, Tags } from 'lucide-react';
+import { Bookmark, Film, Grid3X3, Heart, MessageCircle, Tags, X } from 'lucide-react';
 import { apiUrl, getUserId } from '@/lib/api';
 import CommentDialog from './CommentDialog';
 import { setSelectedPost } from '@/redux/postSlice';
 import axios from 'axios';
 import { toast } from 'sonner';
 import { setAuthUser, setUserProfile } from '@/redux/authSlice';
+import { Dialog, DialogContent } from './ui/dialog';
+
+const getInitial = (username = '') => username.trim().charAt(0).toUpperCase() || 'U';
 
 const Profile = () => {
   const params = useParams();
@@ -20,6 +23,8 @@ const Profile = () => {
   const [activeTab, setActiveTab] = useState('posts');
   const [openPost, setOpenPost] = useState(false);
   const [followLoading, setFollowLoading] = useState(false);
+  const [connectionsOpen, setConnectionsOpen] = useState(false);
+  const [connectionsType, setConnectionsType] = useState('followers');
   const hasValidUserId = userId && userId !== "undefined" && userId !== "null";
 
   const { userProfile, user } = useSelector(store => store.auth);
@@ -39,6 +44,11 @@ const Profile = () => {
   const openPostHandler = (post) => {
     dispatch(setSelectedPost(post));
     setOpenPost(true);
+  }
+
+  const openConnections = (type) => {
+    setConnectionsType(type);
+    setConnectionsOpen(true);
   }
 
   const followOrUnfollowHandler = async () => {
@@ -82,6 +92,7 @@ const Profile = () => {
   const bookmarks = Array.isArray(userProfile?.bookmarks) ? userProfile.bookmarks : [];
   const followers = Array.isArray(userProfile?.followers) ? userProfile.followers : [];
   const following = Array.isArray(userProfile?.following) ? userProfile.following : [];
+  const connectionUsers = connectionsType === 'followers' ? followers : following;
   const displayedPost = activeTab === 'posts' ? posts : bookmarks;
 
   useEffect(() => {
@@ -111,14 +122,14 @@ const Profile = () => {
                 <span className='font-semibold'>{posts.length}</span>
                 <span className='text-sm text-gray-500'>posts</span>
               </div>
-              <div className='flex flex-col'>
+              <button type='button' onClick={() => openConnections('followers')} className='flex flex-col'>
                 <span className='font-semibold'>{followers.length}</span>
                 <span className='text-sm text-gray-500'>followers</span>
-              </div>
-              <div className='flex flex-col'>
+              </button>
+              <button type='button' onClick={() => openConnections('following')} className='flex flex-col'>
                 <span className='font-semibold'>{following.length}</span>
                 <span className='text-sm text-gray-500'>following</span>
-              </div>
+              </button>
             </div>
 
             <div className='hidden min-w-0 flex-1 md:block'>
@@ -146,8 +157,8 @@ const Profile = () => {
 
               <div className='mt-6 flex flex-wrap items-center gap-x-10 gap-y-2 text-base'>
                 <p><span className='font-semibold'>{posts.length} </span>posts</p>
-                <p><span className='font-semibold'>{followers.length} </span>followers</p>
-                <p><span className='font-semibold'>{following.length} </span>following</p>
+                <button type='button' onClick={() => openConnections('followers')} className='hover:text-gray-500'><span className='font-semibold'>{followers.length} </span>followers</button>
+                <button type='button' onClick={() => openConnections('following')} className='hover:text-gray-500'><span className='font-semibold'>{following.length} </span>following</button>
               </div>
 
               <div className='mt-5 min-w-0 text-base'>
@@ -247,6 +258,58 @@ const Profile = () => {
         </div>
       </div>
       <CommentDialog open={openPost} setOpen={setOpenPost} />
+      <Dialog open={connectionsOpen} onOpenChange={setConnectionsOpen}>
+        <DialogContent className='w-[calc(100vw-2rem)] max-w-md gap-0 overflow-hidden rounded-xl border-0 p-0 shadow-2xl'>
+          <div className='relative flex h-12 items-center justify-center border-b border-gray-200 px-12'>
+            <h2 className='text-base font-bold capitalize'>{connectionsType}</h2>
+            <button
+              type='button'
+              onClick={() => setConnectionsOpen(false)}
+              className='absolute right-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full hover:bg-gray-100'
+              aria-label='Close'
+            >
+              <X className='h-5 w-5' />
+            </button>
+          </div>
+          <div className='max-h-[65dvh] min-h-56 overflow-y-auto py-2'>
+            {connectionUsers.length > 0 ? (
+              connectionUsers.map((connectionUser) => {
+                const connectionUserId = getUserId(connectionUser);
+                const username = connectionUser?.username || 'instagram_user';
+                return (
+                  <button
+                    type='button'
+                    key={connectionUserId || username}
+                    onClick={() => {
+                      if (connectionUserId) {
+                        setConnectionsOpen(false);
+                        navigate(`/profile/${connectionUserId}`);
+                      }
+                    }}
+                    className='flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-gray-50'
+                  >
+                    <Avatar className='h-11 w-11 shrink-0'>
+                      <AvatarImage src={connectionUser?.profilePicture} />
+                      <AvatarFallback className='bg-gray-100 text-sm font-semibold text-gray-700'>{getInitial(username)}</AvatarFallback>
+                    </Avatar>
+                    <div className='min-w-0 flex-1'>
+                      <p className='truncate text-sm font-semibold'>{username}</p>
+                      {connectionUser?.bio?.trim() && (
+                        <p className='truncate text-sm text-gray-500'>{connectionUser.bio}</p>
+                      )}
+                    </div>
+                  </button>
+                )
+              })
+            ) : (
+              <div className='flex h-56 flex-col items-center justify-center px-6 text-center'>
+                <p className='text-sm font-semibold'>No {connectionsType} yet</p>
+                <p className='mt-1 text-xs text-gray-500'>{connectionsType === 'followers' ? 'Followers will appear here.' : 'Following users will appear here.'}</p>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

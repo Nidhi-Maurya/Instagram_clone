@@ -162,6 +162,12 @@ export const getProfile = async( req,res)=>{
     }).populate({
       path:'followRequestsReceived',
       select:'username profilePicture bio followers'
+    }).populate({
+      path:'followers',
+      select:'username profilePicture bio followers'
+    }).populate({
+      path:'following',
+      select:'username profilePicture bio followers'
     });
     return res.status(200).json({
       user,
@@ -180,7 +186,7 @@ console.log(error);
 
 export const editProfile =async(req,res)=>{
   try{
-    const {bio,gender}= req.body;
+    const {bio,gender,username}= req.body;
     const profilePicture=req.file || req.files?.profilePhoto?.[0] || req.files?.profilePicture?.[0];
     const  userId= req.id;
     let cloudResponse;
@@ -197,6 +203,26 @@ export const editProfile =async(req,res)=>{
         message: "User not found",
         success:false,
        })
+    }
+    if(username !== undefined){
+      const trimmedUsername = String(username).trim();
+      if(!trimmedUsername){
+        return res.status(400).json({
+          message: "Username is required",
+          success:false,
+        })
+      }
+      const usernameExists = await User.findOne({
+        username: trimmedUsername,
+        _id: { $ne: userId },
+      });
+      if(usernameExists){
+        return res.status(400).json({
+          message: "Username already taken",
+          success:false,
+        })
+      }
+      user.username = trimmedUsername;
     }
     if(bio !== undefined) user.bio=bio;
     if(gender !== undefined) user.gender=gender;

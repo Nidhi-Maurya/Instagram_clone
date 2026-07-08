@@ -88,6 +88,7 @@ const Post = ({ post }) => {
                 );
 
                 dispatch(setPosts(updatedPostData));
+                dispatch(setSelectedPost({ ...post, comments: updatedCommentData }));
                 dispatch(updateUserProfilePostComments({ postId: post._id, comment: res.data.comment }));
                 toast.success(res.data.message);
                 setText("");

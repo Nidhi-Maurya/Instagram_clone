@@ -9,7 +9,7 @@ import Comment from './Comment'
 import axios from 'axios'
 import { toast } from 'sonner'
 import { setPosts, setSelectedPost } from '@/redux/postSlice'
-import { updateUserProfilePostComments, updateUserProfilePostLikes } from '@/redux/authSlice'
+import { removeUserProfilePost, updateUserProfilePostComments, updateUserProfilePostLikes } from '@/redux/authSlice'
 import { apiUrl, getUserId } from '@/lib/api'
 
 const CommentDialog = ({ open, setOpen }) => {
@@ -20,7 +20,13 @@ const CommentDialog = ({ open, setOpen }) => {
   const [comment, setComment] = useState([]);
   const [liked, setLiked] = useState(false);
   const [postLike, setPostLike] = useState(0);
+  const [commentLoading, setCommentLoading] = useState(false);
+  const [actionOpen, setActionOpen] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
   const dispatch = useDispatch();
+  const selectedPostAuthorId = getUserId(selectedPost?.author);
+  const isPostOwner = userId && selectedPostAuthorId && String(userId) === String(selectedPostAuthorId);
 
   useEffect(() => {
     if (selectedPost) {
@@ -30,6 +36,28 @@ const CommentDialog = ({ open, setOpen }) => {
       setPostLike(likes.length);
     }
   }, [selectedPost, userId]);
+
+  useEffect(() => {
+    const fetchComments = async () => {
+      if (!open || !selectedPost?._id) return;
+      try {
+        setCommentLoading(true);
+        const res = await axios.get(apiUrl(`/api/v1/post/${selectedPost._id}/comment/all`), { withCredentials: true });
+        if (res.data.success) {
+          const freshComments = Array.isArray(res.data.comments) ? res.data.comments : [];
+          setComment(freshComments);
+          dispatch(setSelectedPost({ ...selectedPost, comments: freshComments }));
+          dispatch(setPosts(posts.map((post) => post?._id === selectedPost._id ? { ...post, comments: freshComments } : post)));
+        }
+      } catch (error) {
+        console.log(error);
+      } finally {
+        setCommentLoading(false);
+      }
+    };
+
+    fetchComments();
+  }, [open, selectedPost?._id]);
 
   const changeEventHandler = (e) => {
     const inputText = e.target.value;
@@ -96,6 +124,27 @@ const CommentDialog = ({ open, setOpen }) => {
     }
   }
 
+  const deletePostHandler = async () => {
+    if (!selectedPost?._id || deleteLoading) return;
+    try {
+      setDeleteLoading(true);
+      const res = await axios.delete(apiUrl(`/api/v1/post/delete/${selectedPost._id}`), { withCredentials: true });
+      if (res.data.success) {
+        dispatch(setPosts(posts.filter((post) => post?._id !== selectedPost._id)));
+        dispatch(removeUserProfilePost(selectedPost._id));
+        dispatch(setSelectedPost(null));
+        setDeleteConfirmOpen(false);
+        setActionOpen(false);
+        setOpen(false);
+        toast.success(res.data.message);
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Post delete failed");
+    } finally {
+      setDeleteLoading(false);
+    }
+  }
+
   return (
     <Dialog open={open}>
       <DialogContent onInteractOutside={() => setOpen(false)} className="h-[92dvh] max-w-6xl overflow-hidden p-0 md:h-[86dvh]">
@@ -121,17 +170,33 @@ const CommentDialog = ({ open, setOpen }) => {
                 </div>
               </div>
 
-              <Dialog>
+              <Dialog open={actionOpen} onOpenChange={setActionOpen}>
                 <DialogTrigger asChild>
                   <MoreHorizontal className='cursor-pointer' />
                 </DialogTrigger>
-                <DialogContent className="flex flex-col items-center text-sm text-center">
-                  <div className='w-full cursor-pointer text-[#ED4956] font-bold'>
-                    Unfollow
-                  </div>
-                  <div className='w-full cursor-pointer'>
+                <DialogContent className="w-[calc(100vw-2rem)] max-w-sm gap-0 overflow-hidden rounded-xl border-0 p-0 text-center text-sm shadow-2xl">
+                  {isPostOwner ? (
+                    <button
+                      type='button'
+                      onClick={() => {
+                        setActionOpen(false);
+                        setDeleteConfirmOpen(true);
+                      }}
+                      className='h-12 border-b border-gray-200 font-bold text-[#ED4956]'
+                    >
+                      Delete
+                    </button>
+                  ) : (
+                    <button type='button' className='h-12 border-b border-gray-200 font-bold text-[#ED4956]'>
+                      Unfollow
+                    </button>
+                  )}
+                  <button type='button' className='h-12 border-b border-gray-200'>
                     Add to favorites
-                  </div>
+                  </button>
+                  <button type='button' onClick={() => setActionOpen(false)} className='h-12'>
+                    Cancel
+                  </button>
                 </DialogContent>
               </Dialog>
             </div>
@@ -150,7 +215,11 @@ const CommentDialog = ({ open, setOpen }) => {
                 </div>
               </div>
 
-              {comment.length > 0 ? (
+              {commentLoading ? (
+                <div className='flex h-32 items-center justify-center text-sm text-gray-500'>
+                  Loading comments...
+                </div>
+              ) : comment.length > 0 ? (
                 comment.map((comment) => <Comment key={comment._id} comment={comment} />)
               ) : (
                 <div className='flex h-32 flex-col items-center justify-center text-center text-sm text-gray-500'>
@@ -181,6 +250,30 @@ const CommentDialog = ({ open, setOpen }) => {
           </div>
         </div>
       </DialogContent>
+      <Dialog open={deleteConfirmOpen} onOpenChange={(nextOpen) => !deleteLoading && setDeleteConfirmOpen(nextOpen)}>
+        <DialogContent className='w-[calc(100vw-2rem)] max-w-sm gap-0 overflow-hidden rounded-xl border-0 p-0 text-center shadow-2xl'>
+          <div className='px-6 py-6'>
+            <h2 className='text-lg font-semibold'>Delete post?</h2>
+            <p className='mt-2 text-sm text-gray-500'>This post will be removed from your profile.</p>
+          </div>
+          <button
+            type='button'
+            disabled={deleteLoading}
+            onClick={deletePostHandler}
+            className='h-12 border-t border-gray-200 text-sm font-bold text-[#ED4956] disabled:opacity-60'
+          >
+            {deleteLoading ? "Deleting..." : "Delete"}
+          </button>
+          <button
+            type='button'
+            disabled={deleteLoading}
+            onClick={() => setDeleteConfirmOpen(false)}
+            className='h-12 border-t border-gray-200 text-sm disabled:opacity-60'
+          >
+            Cancel
+          </button>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   )
 }

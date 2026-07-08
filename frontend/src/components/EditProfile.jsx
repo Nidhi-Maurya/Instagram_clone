@@ -19,6 +19,7 @@ const EditProfile = () => {
     const [selectedFile, setSelectedFile] = useState(null);
     const [imagePreview, setImagePreview] = useState(user?.profilePicture || "");
     const [input, setInput] = useState({
+        username: user?.username || "",
         bio: user?.bio || "",
         gender: user?.gender || "other"
     });
@@ -39,7 +40,12 @@ const EditProfile = () => {
 
 
     const editProfileHandler = async () => {
+        if (!input.username.trim()) {
+            toast.error("Username is required");
+            return;
+        }
         const formData = new FormData();
+        formData.append("username", input.username.trim());
         formData.append("bio", input.bio || "");
         formData.append("gender", input.gender || "other");
         if(selectedFile){
@@ -57,6 +63,7 @@ const EditProfile = () => {
                 const updatedUserData = {
                     ...user,
                     _id: res.data.user?._id || userId,
+                    username: res.data.user?.username,
                     bio:res.data.user?.bio,
                     profilePicture:res.data.user?.profilePicture,
                     gender:res.data.user.gender
@@ -93,6 +100,15 @@ const EditProfile = () => {
                     </div>
                     <input ref={imageRef} onChange={fileChangeHandler} type='file' accept='image/*' className='hidden' />
                     <Button onClick={() => imageRef?.current.click()} className='h-8 w-full bg-[#0095F6] hover:bg-[#318bc7] sm:w-fit'>Change photo</Button>
+                </div>
+                <div>
+                    <h1 className='font-bold text-xl mb-2'>Username</h1>
+                    <input
+                        value={input.username}
+                        onChange={(e) => setInput({ ...input, username: e.target.value })}
+                        className='h-10 w-full rounded-md border border-gray-300 bg-white px-3 text-sm outline-none focus:border-gray-500'
+                        placeholder='Username'
+                    />
                 </div>
                 <div>
                     <h1 className='font-bold text-xl mb-2'>Bio</h1>
