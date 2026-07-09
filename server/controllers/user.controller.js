@@ -19,6 +19,12 @@ const isStrongPassword = (password = "") => (
   && /[^A-Za-z0-9]/.test(password)
 );
 
+const emitToReceiver = (receiverId, eventName, payload) => {
+  const receiverSocketIds = getReceiverSocketId(receiverId);
+  const socketIds = Array.isArray(receiverSocketIds) ? receiverSocketIds : receiverSocketIds ? [receiverSocketIds] : [];
+  socketIds.forEach((socketId) => getIO()?.to(socketId).emit(eventName, payload));
+};
+
 export const register  = async(req,res)=>{
   try{
     const {username,email,password} =req.body;
@@ -481,7 +487,7 @@ export const followOrUnfollow = async (req, res) => {
 
       const receiverSocketId = getReceiverSocketId(jiskoFollowKrenge);
       if (receiverSocketId) {
-        getIO()?.to(receiverSocketId).emit("followRequestNotification", {
+        emitToReceiver(jiskoFollowKrenge, "followRequestNotification", {
           type: "cancel",
           userId: followKrneVala,
         });
@@ -508,7 +514,7 @@ export const followOrUnfollow = async (req, res) => {
 
     const receiverSocketId = getReceiverSocketId(jiskoFollowKrenge);
     if (receiverSocketId) {
-      getIO()?.to(receiverSocketId).emit("followRequestNotification", {
+      emitToReceiver(jiskoFollowKrenge, "followRequestNotification", {
         type: "request",
         user: {
           _id: user._id,

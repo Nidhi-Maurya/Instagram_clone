@@ -6,6 +6,11 @@ import {Message} from "../models/message.modal.js"
 import User from "../models/user.model.js";
 import { getIO, getReceiverSocketId } from "../socket.js";
 
+const emitToReceiver = (receiverId, eventName, payload) => {
+  const receiverSocketIds = getReceiverSocketId(receiverId);
+  const socketIds = Array.isArray(receiverSocketIds) ? receiverSocketIds : receiverSocketIds ? [receiverSocketIds] : [];
+  socketIds.forEach((socketId) => getIO()?.to(socketId).emit(eventName, payload));
+};
 
 // ! SEND MESSAGE
 
@@ -37,9 +42,9 @@ export  const sendMessage = async(req,res)=>{
 
     const receiverSocketId = getReceiverSocketId(receiverId);
     if(receiverSocketId){
-      getIO()?.to(receiverSocketId).emit("newMessage", newMessage);
       const sender = await User.findById(senderId).select("username profilePicture");
-      getIO()?.to(receiverSocketId).emit("messageNotification", {
+      emitToReceiver(receiverId, "newMessage", newMessage);
+      emitToReceiver(receiverId, "messageNotification", {
         type: "message",
         userId: senderId,
         userDetails: sender,

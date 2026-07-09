@@ -6,6 +6,12 @@ import cloudinary from "../utils/cloudinary.js";
 import { Comment } from "../models/comment.modal.js";
 import { getIO, getReceiverSocketId } from "../socket.js";
 
+const emitToReceiver = (receiverId, eventName, payload) => {
+  const receiverSocketIds = getReceiverSocketId(receiverId);
+  const socketIds = Array.isArray(receiverSocketIds) ? receiverSocketIds : receiverSocketIds ? [receiverSocketIds] : [];
+  socketIds.forEach((socketId) => getIO()?.to(socketId).emit(eventName, payload));
+};
+
 export  const addNewPost = async (req,res)=>{
   try{
     
@@ -182,7 +188,7 @@ export const likePost = async (req,res) =>{
         message: "liked your post",
       };
       const receiverSocketId = getReceiverSocketId(postOwnerId);
-      if(receiverSocketId) getIO()?.to(receiverSocketId).emit("notification", notification);
+      if(receiverSocketId) emitToReceiver(postOwnerId, "notification", notification);
     }
 
     return res.status(200).json({message:'post liked',success:true})
@@ -222,7 +228,7 @@ export const dislikePost = async (req,res) =>{
         postId,
       };
       const receiverSocketId = getReceiverSocketId(postOwnerId);
-      if(receiverSocketId) getIO()?.to(receiverSocketId).emit("notification", notification);
+      if(receiverSocketId) emitToReceiver(postOwnerId, "notification", notification);
     }
 
     return res.status(200).json({message:'post disliked',success:true})

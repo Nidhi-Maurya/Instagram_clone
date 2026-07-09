@@ -27,8 +27,22 @@ initSocket(server);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://localhost:8000",
+  process.env.CLIENT_URL,
+  process.env.RENDER_EXTERNAL_URL,
+].filter(Boolean);
+
 const corsOptions = {
-  origin :'http://localhost:5173',
+  origin(origin, callback) {
+    const isDeploymentOrigin = origin?.endsWith(".onrender.com") || origin?.endsWith(".vercel.app");
+    if (!origin || allowedOrigins.includes(origin) || isDeploymentOrigin) {
+      callback(null, true);
+      return;
+    }
+    callback(new Error("Not allowed by CORS"));
+  },
   credentials:true,
 }
 

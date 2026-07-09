@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import ChatPage from './components/ChatPage'
 import EditProfile from './components/EditProfile'
 import Home from './components/Home'
@@ -64,9 +64,13 @@ const browserRouter = createBrowserRouter([
 
 function App() {
   const { user } = useSelector(store => store.auth);
-  const { socket } = useSelector(store => store.socketio);
   const dispatch = useDispatch();
   const userId = getUserId(user);
+  const userRef = useRef(user);
+
+  useEffect(() => {
+    userRef.current = user;
+  }, [user]);
 
   useEffect(() => {
     if (!userId) return;
@@ -95,56 +99,63 @@ function App() {
   }, [userId, dispatch]);
 
   useEffect(() => {
-    if (userId && !isSessionExpired(user)) {
-      const socketio = io(API_BASE_URL || undefined, {
-        query: {
-          userId
-        },
-        transports: ['websocket']
-      });
-      dispatch(setSocket(socketio));
+    if (!userId || isSessionExpired(userRef.current)) {
+      dispatch(setSocket(null));
+      return;
+    }
 
-      // listen all the events
-      socketio.on('getOnlineUsers', (onlineUsers) => {
-        dispatch(setOnlineUsers(onlineUsers));
-      });
+    const socketio = io(API_BASE_URL || undefined, {
+      query: {
+        userId
+      },
+      transports: ['websocket']
+    });
+    dispatch(setSocket(socketio));
 
-      socketio.on('notification', (notification) => {
-        dispatch(setLikeNotification(notification));
-        dispatch(updateUserProfilePostLikes(notification));
-      });
+    // listen all the events
+    socketio.on('getOnlineUsers', (onlineUsers) => {
+      dispatch(setOnlineUsers(onlineUsers));
+    });
 
-      socketio.on('messageNotification', (notification) => {
-        dispatch(setMessageNotification(notification));
-      });
+    socketio.on('notification', (notification) => {
+      dispatch(setLikeNotification(notification));
+      dispatch(updateUserProfilePostLikes(notification));
+    });
 
-      socketio.on('followRequestNotification', (notification) => {
-        const currentRequests = Array.isArray(user?.followRequestsReceived) ? user.followRequestsReceived : [];
-        if (notification?.type === "request" && notification?.user) {
-          const exists = currentRequests.some((item) => getUserId(item) === getUserId(notification.user));
-          if (!exists) {
-            dispatch(setAuthUser({
-              ...user,
-              followRequestsReceived: [notification.user, ...currentRequests],
-            }));
-          }
-        } else if (notification?.type === "cancel" && notification?.userId) {
-          dispatch(setAuthUser({
-            ...user,
-            followRequestsReceived: currentRequests.filter((item) => getUserId(item) !== notification.userId),
-          }));
+    socketio.on('messageNotification', (notification) => {
+      dispatch(setMessageNotification(notification));
+    });
+
+    socketio.on('followRequestNotification', (notification) => {
+      const currentUser = userRef.current;
+      if (!currentUser) return;
+
+      const currentRequests = Array.isArray(currentUser.followRequestsReceived) ? currentUser.followRequestsReceived : [];
+      if (notification?.type === "request" && notification?.user) {
+        const exists = currentRequests.some((item) => getUserId(item) === getUserId(notification.user));
+        if (!exists) {
+          const updatedUser = {
+            ...currentUser,
+            followRequestsReceived: [notification.user, ...currentRequests],
+          };
+          userRef.current = updatedUser;
+          dispatch(setAuthUser(updatedUser));
         }
-      });
-
-      return () => {
-        socketio.close();
-        dispatch(setSocket(null));
+      } else if (notification?.type === "cancel" && notification?.userId) {
+        const updatedUser = {
+          ...currentUser,
+          followRequestsReceived: currentRequests.filter((item) => getUserId(item) !== notification.userId),
+        };
+        userRef.current = updatedUser;
+        dispatch(setAuthUser(updatedUser));
       }
-    } else if (socket) {
-      socket.close();
+    });
+
+    return () => {
+      socketio.close();
       dispatch(setSocket(null));
     }
-  }, [user, dispatch]);
+  }, [userId, dispatch]);
 
   return (
     <>
