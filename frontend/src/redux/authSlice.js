@@ -1,4 +1,5 @@
 import {createSlice} from "@reduxjs/toolkit"
+import { addSessionExpiry } from "@/lib/session";
 
 const authSlice = createSlice({
     name:"auth",
@@ -11,7 +12,7 @@ const authSlice = createSlice({
     reducers:{
         // actions
         setAuthUser:(state,action) => {
-            state.user = action.payload;
+            state.user = addSessionExpiry(action.payload, state.user);
         },
         setSuggestedUsers:(state,action) => {
             state.suggestedUsers = action.payload;

@@ -4,10 +4,10 @@ import useGetUserProfile from '@/hooks/useGetUserProfile';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { Button } from './ui/button';
-import { Bookmark, Film, Grid3X3, Heart, MessageCircle, Tags, X } from 'lucide-react';
+import { Bookmark, Film, Grid3X3, Heart, LogOut, Menu, MessageCircle, Tags, X } from 'lucide-react';
 import { apiUrl, getUserId } from '@/lib/api';
 import CommentDialog from './CommentDialog';
-import { setSelectedPost } from '@/redux/postSlice';
+import { setPosts, setSelectedPost } from '@/redux/postSlice';
 import axios from 'axios';
 import { toast } from 'sonner';
 import { setAuthUser, setUserProfile } from '@/redux/authSlice';
@@ -25,6 +25,9 @@ const Profile = () => {
   const [followLoading, setFollowLoading] = useState(false);
   const [connectionsOpen, setConnectionsOpen] = useState(false);
   const [connectionsType, setConnectionsType] = useState('followers');
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
+  const [logoutLoading, setLogoutLoading] = useState(false);
   const hasValidUserId = userId && userId !== "undefined" && userId !== "null";
 
   const { userProfile, user } = useSelector(store => store.auth);
@@ -49,6 +52,27 @@ const Profile = () => {
   const openConnections = (type) => {
     setConnectionsType(type);
     setConnectionsOpen(true);
+  }
+
+  const logoutHandler = async () => {
+    try {
+      setLogoutLoading(true);
+      const res = await axios.get(apiUrl('/api/v1/user/logout'), { withCredentials: true });
+      if (res.data.success) {
+        dispatch(setAuthUser(null));
+        dispatch(setUserProfile(null));
+        dispatch(setSelectedPost(null));
+        dispatch(setPosts([]));
+        setLogoutConfirmOpen(false);
+        setMobileMenuOpen(false);
+        navigate("/login");
+        toast.success(res.data.message);
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Logout failed");
+    } finally {
+      setLogoutLoading(false);
+    }
   }
 
   const followOrUnfollowHandler = async () => {
@@ -109,7 +133,19 @@ const Profile = () => {
     <div className='mx-auto flex w-full max-w-[935px] justify-center'>
       <div className='flex w-full flex-col pb-6 md:py-8'>
         <section className='px-4 py-4 md:px-0 md:pb-10 md:pt-0'>
-          <h1 className='mb-4 truncate text-xl font-semibold sm:hidden'>{userProfile?.username}</h1>
+          <div className='mb-4 flex items-center justify-between gap-3 sm:hidden'>
+            <h1 className='min-w-0 truncate text-xl font-semibold'>{userProfile?.username}</h1>
+            {isLoggedInUserProfile && (
+              <button
+                type='button'
+                onClick={() => setMobileMenuOpen(true)}
+                className='flex h-9 w-9 shrink-0 items-center justify-center rounded-full hover:bg-gray-100'
+                aria-label='Profile menu'
+              >
+                <Menu className='h-6 w-6' />
+              </button>
+            )}
+          </div>
 
           <div className='flex min-w-0 items-center gap-6 md:grid md:grid-cols-[290px_minmax(0,1fr)] md:items-start md:gap-0'>
             <Avatar className='h-20 w-20 shrink-0 md:mx-auto md:h-[150px] md:w-[150px]'>
@@ -308,6 +344,58 @@ const Profile = () => {
               </div>
             )}
           </div>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+        <DialogContent className='!bottom-0 !left-0 !top-auto !w-full !max-w-none !translate-x-0 !translate-y-0 gap-0 overflow-hidden rounded-t-2xl border-0 p-0 shadow-2xl sm:hidden'>
+          <div className='bg-white'>
+            <div className='border-b border-gray-100 px-4 py-3 text-center text-base font-bold'>Options</div>
+            <button
+              type='button'
+              onClick={() => {
+                setMobileMenuOpen(false);
+                setLogoutConfirmOpen(true);
+              }}
+              className='flex h-12 w-full items-center gap-3 px-5 text-sm font-semibold text-[#ED4956]'
+            >
+              <LogOut className='h-5 w-5' />
+              Log out
+            </button>
+            <button
+              type='button'
+              onClick={() => setMobileMenuOpen(false)}
+              className='h-12 w-full border-t border-gray-100 text-sm'
+            >
+              Cancel
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={logoutConfirmOpen} onOpenChange={(nextOpen) => !logoutLoading && setLogoutConfirmOpen(nextOpen)}>
+        <DialogContent className='w-[calc(100vw-2rem)] max-w-sm gap-0 overflow-hidden rounded-xl border-0 p-0 text-center shadow-2xl'>
+          <div className='px-6 py-6'>
+            <div className='mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-gray-100'>
+              <LogOut className='h-6 w-6' />
+            </div>
+            <h2 className='text-lg font-semibold'>Log out?</h2>
+            <p className='mt-2 text-sm text-gray-500'>Are you sure you want to log out of this account?</p>
+          </div>
+          <button
+            type='button'
+            disabled={logoutLoading}
+            onClick={logoutHandler}
+            className='h-12 border-t border-gray-200 text-sm font-bold text-[#ED4956] disabled:opacity-60'
+          >
+            {logoutLoading ? "Logging out..." : "Log out"}
+          </button>
+          <button
+            type='button'
+            disabled={logoutLoading}
+            onClick={() => setLogoutConfirmOpen(false)}
+            className='h-12 border-t border-gray-200 text-sm disabled:opacity-60'
+          >
+            Cancel
+          </button>
         </DialogContent>
       </Dialog>
     </div>

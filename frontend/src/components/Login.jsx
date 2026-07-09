@@ -9,6 +9,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { setAuthUser } from '@/redux/authSlice';
 import { apiUrl, getUserId } from '@/lib/api';
 import { FaInstagram } from 'react-icons/fa';
+import { isSessionExpired } from '@/lib/session';
 
 const Login = () => {
     const [input, setInput] = useState({
@@ -53,7 +54,7 @@ const Login = () => {
     }
 
     useEffect(()=>{
-        if(getUserId(user)){
+        if(getUserId(user) && !isSessionExpired(user)){
             navigate("/");
         }
     },[navigate, user])

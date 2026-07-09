@@ -18,6 +18,7 @@ import { setLikeNotification, setMessageNotification } from './redux/rtnSlice'
 import { setAuthUser, updateUserProfilePostLikes } from './redux/authSlice'
 import ProtectedRoutes from './components/ProtectedRoutes'
 import { API_BASE_URL, apiUrl, getUserId } from './lib/api'
+import { isSessionExpired } from './lib/session'
 
 
 const browserRouter = createBrowserRouter([
@@ -69,6 +70,10 @@ function App() {
 
   useEffect(() => {
     if (!userId) return;
+    if (isSessionExpired(user)) {
+      dispatch(setAuthUser(null));
+      return;
+    }
 
     const syncCurrentUser = async () => {
       try {
@@ -78,6 +83,9 @@ function App() {
         }
       } catch (error) {
         console.log(error);
+        if (error.response?.status === 401) {
+          dispatch(setAuthUser(null));
+        }
       }
     };
 
@@ -87,7 +95,7 @@ function App() {
   }, [userId, dispatch]);
 
   useEffect(() => {
-    if (userId) {
+    if (userId && !isSessionExpired(user)) {
       const socketio = io(API_BASE_URL || undefined, {
         query: {
           userId

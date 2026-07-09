@@ -8,6 +8,7 @@ import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import { useSelector } from 'react-redux';
 import { apiUrl, getUserId } from '@/lib/api';
 import { FaInstagram } from 'react-icons/fa';
+import { isSessionExpired } from '@/lib/session';
 
 const passwordRules = [
     { label: "8 characters", test: (value) => value.length >= 8 },
@@ -68,7 +69,7 @@ const Signup = () => {
     }
 
     useEffect(()=>{
-        if(getUserId(user)){
+        if(getUserId(user) && !isSessionExpired(user)){
             navigate("/");
         }
     },[navigate, user])
