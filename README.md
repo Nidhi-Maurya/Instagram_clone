@@ -372,9 +372,5 @@ reels.png
 chat.png
 ```
 
-4. Commit the images with `README.md`.
-5. GitHub will automatically render them in the screenshots table.
 
-## License
 
-This project is for learning and portfolio use.
